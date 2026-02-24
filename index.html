@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>FUBOL RUSH - Impacto Total</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root{
+      --bg:#050505;
+      --panel: rgba(0,0,0,0.78);
+      --panel2: rgba(0,0,0,0.92);
+      --stroke: rgba(255,255,255);
+      --yellow:#fbbf24;
+      --green:#22c55e;
+      --red:#ef4444;
+      --blue:#60a5fa;
+    }
+    body{
+      margin:0;
+      overflow:hidden;
+      background: var(--bg);
+      touch-action:none;
+      font-family:'Segoe UI',system-ui,sans-serif;
+      user-select:none;
+    }
+    canvas{display:block;}
+    .screen-bg{
+      background-size: cover;
+      background-position:center;
+      background-repeat:no-repeat;
+    }
+
+    #start-screen{
+      position:fixed; inset:0;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      z-index:300;
+      background: radial-gradient(circle at center, #111 0%, #000 100%);
+      background-image:
+        linear-gradient(rgba(0,0,0,0.20), rgba(0,0,0,0.65)),
+        url("assets/ui/bg_start.png");
+    }
+    .logo-container{ margin-bottom:50px; animation:float 3s ease-in-out infinite; }
+    @keyframes float{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-15px)} }
+
+    .score-panel{
+      position:absolute; top:10px; left:50%; transform:translateX(-50%);
+      z-index:150; width:95%; max-width:450px;
+      display:none; pointer-events:none;
+    }
+    .bottom-stats{
+      position:absolute; bottom:20px; left:50%; transform:translateX(-50%);
+      z-index:150; width:90%; max-width:400px;
+      display:none; pointer-events:none;
+    }
+    .stats-pill{
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      border-radius:50px;
+      padding:10px 20px;
+      display:flex; justify-content:space-around;
+      font-size:.85rem;
+      color:white;
+      border:1px solid var(--stroke);
+      box-shadow:0 4px 20px rgba(0,0,0,0.55);
+    }
+
+    .modal-overlay{
+      position:fixed; inset:0;
+      background: var(--panel2);
+      backdrop-filter: blur(12px);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      z-index:400;
+      color:white;
+      padding:20px;
+      text-align:center;
+    }
+
+    .upgrade-card{
+      background:#111;
+      border:1px solid #333;
+      border-radius:12px;
+      padding:14px;
+      width:100%;
+      max-width:300px;
+      margin:8px 0;
+      cursor:pointer;
+      transition: all .2s;
+      display:flex; justify-content:space-between; align-items:center;
+    }
+    .upgrade-card:not(.disabled):hover{ border-color: var(--yellow); background:#1a1a1a; }
+    .upgrade-card.disabled{
+      opacity:.4; cursor:not-allowed;
+      border-color:#111; background:#080808;
+    }
+
+    #goal-overlay{
+      position:fixed; top:50%; left:50%;
+      transform: translate(-50%,-50%) scale(0);
+      z-index:200; pointer-events:none;
+      transition: transform .5s cubic-bezier(0.175,0.885,0.32,1.275);
+    }
+    #goal-overlay.active{ transform: translate(-50%,-50%) scale(1); }
+    .goal-text{
+      font-size: clamp(60px, 15vw, 150px);
+      font-weight:900;
+      color:#fff;
+      text-transform:uppercase;
+      font-style:italic;
+      text-shadow:0 0 30px rgba(255,255,255,0.4), 0 10px 0 #333;
+      letter-spacing:-5px;
+    }
+
+    .stat-bar-container{
+      width:100%;
+      height:6px;
+      background:rgba(255,255,255,0.1);
+      border-radius:10px;
+      margin-top:4px;
+      overflow:hidden;
+    }
+    .stat-bar-fill{
+      height:100%;
+      background: var(--yellow);
+      transition: width .4s cubic-bezier(0.175,0.885,0.32,1.275);
+    }
+
+    .logo-img{
+      width:min(560px, 92vw);
+      height:auto;
+      filter: drop-shadow(0 0 30px rgba(0,0,0,0.8));
+    }
+
+    .hero-sprite{
+      width:128px; height:128px;
+      image-rendering: pixelated;
+      border-radius:22px;
+      border: 2px solid rgba(255,255,255,0.18);
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
+      background: rgba(255,255,255,0.06);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .hero-sprite img{
+      width:96px; height:96px; object-fit:contain;
+      image-rendering: pixelated;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="start-screen" class="screen-bg">
+    <div class="logo-container text-center">
+      <img class="logo-img" src="assets/ui/logo_fubol_rush.png" alt="FUBOL RUSH" />
+      <p class="text-green-500 text-xs font-bold tracking-[0.5em] mt-6 uppercase">VERSIÓN ESTABLE 2026</p>
+    </div>
+    <button onclick="startGameFlow()"
+      class="px-16 py-6 bg-white text-black font-black rounded-full text-2xl uppercase shadow-[0_0_30px_rgba(255,255,255,0.3)] hover:scale-110 active:scale-95 transition-all">
+      Jugar
+    </button>
+  </div>
+
+  <div id="selection-screen" class="modal-overlay screen-bg" style="display:none; background-image:
+      linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.85)),
+      url('assets/ui/bg_select.png');">
+    <h1 class="text-4xl font-black mb-10 uppercase italic tracking-tight">Elige tu Jugador</h1>
+
+    <div class="flex items-center gap-8 mb-12">
+      <button class="w-14 h-14 bg-white/10 rounded-full flex items-center justify-center text-2xl hover:bg-white/20"
+        onclick="changeHeroIndex(-1)">◀</button>
+
+      <div id="hero-display" class="w-72 text-center"></div>
+
+      <button class="w-14 h-14 bg-white/10 rounded-full flex items-center justify-center text-2xl hover:bg-white/20"
+        onclick="changeHeroIndex(1)">▶</button>
+    </div>
+
+    <button onclick="confirmHero()"
+      class="px-24 py-5 bg-yellow-500 text-black font-black rounded-full uppercase shadow-xl hover:bg-yellow-400 transition-all">
+      Confirmar Selección
+    </button>
+  </div>
+
+  <div id="goal-overlay"><div class="goal-text">¡GOLAZO!</div></div>
+
+  <div id="upgrade-menu" class="modal-overlay screen-bg" style="display:none; background-image:
+      linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.9)),
+      url('assets/ui/bg_shop.png');">
+    <h2 class="text-5xl font-black mb-1 text-yellow-500 italic uppercase">¡Victoria!</h2>
+
+    <div class="bg-white/5 border border-white/10 rounded-2xl p-4 mb-6 w-full max-w-[300px]">
+      <div class="flex justify-between text-[10px] uppercase font-bold text-gray-400 mb-2">
+        <span>Bono Victoria</span><span class="text-white">+30</span>
+      </div>
+      <div class="flex justify-between text-[10px] uppercase font-bold text-gray-400 mb-3 pb-3 border-b border-white/5">
+        <span>Bono Goles (<span id="win-goals-count">0</span>)</span>
+        <span class="text-white" id="win-goals-bonus">+0</span>
+      </div>
+      <div class="flex justify-between items-center mt-1">
+        <span class="text-xs uppercase font-black text-yellow-500">Tus Créditos</span>
+        <span class="text-2xl font-black text-white" id="shop-total-credits">0</span>
+      </div>
+    </div>
+
+    <p class="text-gray-400 mb-4 uppercase text-[10px] tracking-widest font-black">Mejoras Disponibles</p>
+    <div id="shop-container" class="w-full flex flex-col items-center"></div>
+    <button onclick="nextMatch()"
+      class="mt-8 px-16 py-4 bg-white text-black font-black rounded-full hover:bg-green-500 hover:text-white transition-all uppercase italic">
+      Siguiente Partido
+    </button>
+  </div>
+
+  <div id="game-over-screen" class="modal-overlay screen-bg" style="display:none; background-image:
+      linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.95)),
+      url('assets/ui/bg_gameover.png');">
+    <h2 class="text-6xl font-black mb-2 text-red-500 italic uppercase">Eliminado</h2>
+    <div class="bg-white/5 border border-white/10 p-6 rounded-2xl mb-8 w-64">
+      <div class="text-xs text-gray-500 uppercase font-bold mb-1">Racha Final</div>
+      <div id="final-streak" class="text-4xl font-black text-white">0</div>
+    </div>
+    <button onclick="location.reload()"
+      class="px-16 py-5 bg-white text-black font-black rounded-full hover:bg-red-500 hover:text-white transition-all uppercase italic">
+      Volver al Menú
+    </button>
+  </div>
+
+  <div id="score-panel" class="score-panel">
+    <div class="bg-black/90 backdrop-blur-md rounded-2xl border border-white/20 p-4 flex justify-between items-center shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
+      <div class="text-center">
+        <div class="text-[9px] text-blue-400 font-bold uppercase">Local</div>
+        <div id="score-home" class="text-3xl font-black leading-none text-white">0</div>
+      </div>
+      <div id="timer-display" class="font-mono text-2xl font-bold text-yellow-500 bg-white/5 px-4 py-1 rounded-lg border border-white/5">00:30</div>
+      <div class="text-center">
+        <div class="text-[9px] text-red-400 font-bold uppercase">Visitante</div>
+        <div id="score-away" class="text-3xl font-black leading-none text-white">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="bottom-stats" class="bottom-stats">
+    <div class="stats-pill">
+      <div class="flex flex-col items-center">
+        <span class="text-[9px] text-gray-400 uppercase font-bold">Racha</span>
+        <span class="font-black text-sm" id="ui-streak">0</span>
+      </div>
+      <div class="w-[1px] h-6 bg-white/10 self-center"></div>
+      <div class="flex flex-col items-center relative" id="credits-container">
+        <span class="text-[9px] text-yellow-500 uppercase font-bold">Créditos</span>
+        <span class="font-black text-sm" id="ui-credits">0</span>
+      </div>
+      <div class="w-[1px] h-6 bg-white/10 self-center"></div>
+      <div class="flex flex-col items-center">
+        <span class="text-[9px] text-green-400 uppercase font-bold">Dificultad</span>
+        <span class="font-black text-sm" id="ui-ia-lvl">1</span>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    // =========================================================
+    // SQUASH ONLY (SIN BLINK)
+    // =========================================================
+    // Umbral: golpes más suaves también deforman (más bajo = más sensible)
+    const SQUASH_THRESHOLD = 2.5;
+
+    // Intensidad base y máximo (subí SQUASH_MAX para deformar más)
+    const SQUASH_BASE = 0.08;
+    const SQUASH_MAX  = 0.28;
+
+    // Recuperación: más alto = vuelve más rápido
+    const BALL_SQUASH_RECOVER   = 0.35;
+    const PLAYER_SQUASH_RECOVER = 0.80;  // (↑) jugador vuelve más rápido
+    const ENEMY_SQUASH_RECOVER  = 0.55;
+
+    // Cooldown para que no se “reinyecte” squash a cada frame en choques encadenados
+    const SQUASH_COOLDOWN_SEC = 0.06;
+
+    // =========================================================
+    // ASSETS (placeholders)
+    // =========================================================
+    const ASSETS = {
+      field: "assets/field/field.png",
+      goalL: "assets/field/goal_left.png",
+      goalR: "assets/field/goal_right.png",
+      ball:  "assets/ball/ball.png",
+      enemy: "assets/enemies/enemy_01.png",
+      heroes: [
+        "assets/heroes/hero_00.png",
+        "assets/heroes/hero_01.png",
+        "assets/heroes/hero_02.png",
+        "assets/heroes/hero_03.png",
+        "assets/heroes/hero_04.png",
+        "assets/heroes/hero_05.png",
+        "assets/heroes/hero_06.png",
+        "assets/heroes/hero_07.png",
+        "assets/heroes/hero_08.png",
+      ],
+    };
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d", { alpha:false });
+
+    let canvasW = 0, canvasH = 0;
+
+    const MATCH_DURATION = 30;
+    const FIELD_MARGIN = 70;
+    const CORNER_RADIUS = 120;
+
+    const camera = { x:0, y:0, shakeIntensity:0 };
+
+    const heroes = [
+      { id:0, name:"VELOCISTA", color:"#3b82f6", speed:0.45, power:1.1, size:38 },
+      { id:1, name:"MURALLA",   color:"#9333ea", speed:0.25, power:1.6, size:54 },
+      { id:2, name:"CAPITÁN",   color:"#eab308", speed:0.35, power:1.3, size:44 },
+      { id:3, name:"NINJA",     color:"#10b981", speed:0.40, power:1.2, size:40 },
+      { id:4, name:"TITÁN",     color:"#ef4444", speed:0.30, power:1.4, size:50 },
+      { id:5, name:"MAGO",      color:"#ec4899", speed:0.38, power:1.4, size:41 },
+      { id:6, name:"CAÑONERO",  color:"#f97316", speed:0.32, power:2.0, size:46 },
+      { id:7, name:"GLADIADOR", color:"#84cc16", speed:0.35, power:1.4, size:42 },
+      { id:8, name:"COLOSO",    color:"#475569", speed:0.22, power:2.3, size:58 },
+    ]; 
+
+    let pStats = { speed:0, power:0, radius:0, credits:0, streak:0, ia:1, color:"#fff" };
+    let gState = { scoreH:0, scoreA:0, time:MATCH_DURATION, paused:true };
+    let selectedIdx = 0;
+    let inputKeys = {};
+    let particles = [];
+    let lastTime = 0;
+    let purchasedThisTurn = {};
+
+    // =========================
+    // Image loader
+    // =========================
+    const images = {};
+    let imagesReady = false;
+
+    function loadImage(key, src){
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => resolve({ ok:true, key, img, src });
+        img.onerror = () => resolve({ ok:false, key, img:null, src });
+        img.src = src;
+      });
+    }
+
+    async function preloadSprites(){
+      const jobs = [];
+      jobs.push(loadImage("field", ASSETS.field));
+      jobs.push(loadImage("goalL", ASSETS.goalL));
+      jobs.push(loadImage("goalR", ASSETS.goalR));
+      jobs.push(loadImage("ball",  ASSETS.ball));
+      jobs.push(loadImage("enemy", ASSETS.enemy));
+      ASSETS.heroes.forEach((src,i)=> jobs.push(loadImage(`hero_${i}`, src)));
+
+      const results = await Promise.all(jobs);
+      const missing = [];
+      results.forEach(r => {
+        if(r.ok) images[r.key] = r.img;
+        else missing.push(`${r.key} -> ${r.src}`);
+      });
+      if(missing.length) console.warn("[ASSETS] Faltan o no cargan:", missing);
+
+      imagesReady = true;
+    }
+
+    // =========================
+    // FX
+    // =========================
+    function triggerShake(intensity){
+      camera.shakeIntensity = Math.max(camera.shakeIntensity, intensity);
+    }
+
+    class Particle{
+      constructor(x,y,isExplosion=false){
+        this.x=x; this.y=y;
+        const ang = Math.random()*Math.PI*2;
+        const sp = isExplosion ? (Math.random()*18+5) : (Math.random()*5+2);
+        this.vx = Math.cos(ang)*sp;
+        this.vy = Math.sin(ang)*sp;
+        const isBig = isExplosion && Math.random()>0.85;
+        this.w = isBig ? Math.random()*20+10 : Math.random()*8+3;
+        this.h = isBig ? Math.random()*12+6 : Math.random()*6+2;
+        this.life = 1;
+        this.decay = isExplosion ? (Math.random()*0.015+0.005) : 0.04;
+        const shade = Math.floor(Math.random()*100)+155;
+        this.color = `rgb(${shade},${shade},${shade})`;
+        this.rot = Math.random()*Math.PI;
+        this.rotSp = (Math.random()-0.5)*0.3;
+        this.wob = Math.random()*10;
+      }
+      update(step){
+        this.x += this.vx*step;
+        this.y += this.vy*step;
+        const fr = Math.pow(0.97, step);
+        this.vx *= fr; this.vy *= fr;
+        this.vy += 0.08*step;
+        this.rot += this.rotSp*step;
+        this.life -= this.decay*step;
+        this.wob += 0.1*step;
+      }
+      draw(){
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.translate(this.x + camera.x + Math.sin(this.wob)*3, this.y + camera.y);
+        ctx.rotate(this.rot);
+        ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
+        ctx.restore();
+      }
+    }
+
+    // =========================
+    // Entities + squash only
+    // =========================
+    class Entity{
+      constructor(r, color, spriteKey=null, isBall=false){
+        this.x=0; this.y=0; this.vx=0; this.vy=0;
+        this.radius=r;
+        this.color=color;
+        this.spriteKey=spriteKey;
+        this.isBall=isBall;
+
+        // dinamismo
+        this.angle = 0;
+        this.spin = 0;
+
+        // squash
+        this.squash = 0;
+        this.lastImpactAngle = 0;
+        this.squashCooldown = 0;
+      }
+
+      // LLAMAR en impacto (sin blink)
+      triggerImpactFX(impactMagnitude, impactAngleRad){
+        if(impactMagnitude < SQUASH_THRESHOLD) return;
+        if(this.squashCooldown > 0) return;
+
+        this.squashCooldown = SQUASH_COOLDOWN_SEC;
+
+        // squash crece según impacto (player un poco menos para no verse “gomoso”)
+        const isPlayer = (this === p1);
+        const base = isPlayer ? (SQUASH_BASE * 0.85) : SQUASH_BASE;
+        const scale = isPlayer ? 0.10 : 0.12;
+
+        const add = base + (Math.min(impactMagnitude, 18) / 18) * scale;
+        this.squash = Math.min(SQUASH_MAX, Math.max(this.squash, add));
+        this.lastImpactAngle = impactAngleRad;
+      }
+
+      move(friction, step){
+        this.x += this.vx*step;
+        this.y += this.vy*step;
+
+        const f = Math.pow(friction, step);
+        this.vx *= f;
+        this.vy *= f;
+
+        // rotación
+        const sp = Math.hypot(this.vx, this.vy);
+        if(this.isBall){
+          this.spin += (sp * 0.015) * step;
+        } else {
+          if(sp > 0.5){
+            const target = Math.atan2(this.vy, this.vx);
+            const diff = ((target - this.angle + Math.PI*3) % (Math.PI*2)) - Math.PI;
+            this.angle += diff * 0.12 * step;
+          }
+          this.spin += (sp * 0.0025) * step;
+        }
+
+        // dt aprox
+        const dtApprox = step / 60;
+
+        // cooldown de squash
+        this.squashCooldown = Math.max(0, this.squashCooldown - dtApprox);
+
+        // recover squash (pelota vs player vs enemy)
+        const recover = this.isBall
+          ? BALL_SQUASH_RECOVER
+          : (this === p1 ? PLAYER_SQUASH_RECOVER : ENEMY_SQUASH_RECOVER);
+
+        this.squash = Math.max(0, this.squash - (recover * dtApprox));
+      }
+
+      draw(){
+        const px = this.x + camera.x;
+        const py = this.y + camera.y;
+
+        const img = (imagesReady && this.spriteKey) ? images[this.spriteKey] : null;
+
+        ctx.save();
+        ctx.translate(px, py);
+
+        // rotación
+        if(this.isBall){
+          ctx.rotate(this.spin);
+        } else {
+          ctx.rotate(this.angle + Math.sin(this.spin)*0.06);
+        }
+
+        // squash (orientado al impacto)
+        if(this.squash > 0){
+          ctx.save();
+          ctx.rotate(this.lastImpactAngle);
+
+          const sx = 1 + this.squash;
+          const sy = 1 - (this.squash*0.75);
+          ctx.scale(sx, sy);
+
+          this._drawSprite(img);
+          ctx.restore();
+        } else {
+          this._drawSprite(img);
+        }
+
+        ctx.restore();
+      }
+
+      _drawSprite(img){
+        // fallback a círculo
+        if(!img){
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.radius, 0, Math.PI*2);
+          ctx.fill();
+          ctx.strokeStyle = this.isBall ? "#000" : "#fff";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          return;
+        }
+
+        const d = this.radius*2;
+        ctx.drawImage(img, -this.radius, -this.radius, d, d);
+      }
+    }
+
+    const ball = new Entity(12, "#fff", "ball", true);
+    const p1   = new Entity(22, "#fff", null, false);
+    const p2   = new Entity(32, "#f44", "enemy", false);
+
+    // =========================
+    // UI flow
+    // =========================
+    function startGameFlow(){
+      document.getElementById("start-screen").style.display = "none";
+      document.getElementById("selection-screen").style.display = "flex";
+      updateHeroView();
+    }
+
+    function updateHeroView(){
+      const h = heroes[selectedIdx];
+      const speedPerc = (h.speed / 0.5) * 100;
+      const powerPerc = (h.power / 2.5) * 100;
+      const sizePerc  = (h.size  / 40)  * 100;
+      const heroImg = ASSETS.heroes[h.id];
+
+      document.getElementById("hero-display").innerHTML = `
+        <div class="flex flex-col items-center">
+          <div class="hero-sprite mb-6">
+            <img src="${heroImg}" alt="${h.name}" onerror="this.style.display='none'">
+          </div>
+
+          <div class="font-black text-3xl text-white uppercase italic tracking-tighter mb-5">${h.name}</div>
+
+          <div class="w-full space-y-4 bg-white/5 p-5 rounded-2xl border border-white/10">
+            <div class="text-left">
+              <div class="flex justify-between text-[10px] uppercase font-black text-gray-400">
+                <span>Velocidad</span><span class="text-yellow-500">${Math.round(speedPerc)}%</span>
+              </div>
+              <div class="stat-bar-container"><div class="stat-bar-fill" style="width:${speedPerc}%"></div></div>
+            </div>
+
+            <div class="text-left">
+              <div class="flex justify-between text-[10px] uppercase font-black text-gray-400">
+                <span>Potencia</span><span class="text-yellow-500">${Math.round(powerPerc)}%</span>
+              </div>
+              <div class="stat-bar-container"><div class="stat-bar-fill" style="width:${powerPerc}%"></div></div>
+            </div>
+
+            <div class="text-left">
+              <div class="flex justify-between text-[10px] uppercase font-black text-gray-400">
+                <span>Físico</span><span class="text-yellow-500">${Math.round(sizePerc)}%</span>
+              </div>
+              <div class="stat-bar-container"><div class="stat-bar-fill" style="width:${sizePerc}%"></div></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function changeHeroIndex(d){
+      selectedIdx = (selectedIdx + d + heroes.length) % heroes.length;
+      updateHeroView();
+    }
+
+    function confirmHero(){
+      const h = heroes[selectedIdx];
+      Object.assign(pStats, { speed:h.speed, power:h.power, radius:h.size, color:h.color, credits:0, streak:0, ia:1 });
+
+      p1.color = h.color;
+      p1.radius = h.size;
+      p1.spriteKey = `hero_${h.id}`;
+
+      document.getElementById("selection-screen").style.display = "none";
+      document.getElementById("score-panel").style.display = "block";
+      document.getElementById("bottom-stats").style.display = "block";
+
+      gState.paused = false;
+      lastTime = performance.now();
+
+      resetEntities();
+      updateUI();
+    }
+
+    // =========================
+    // Game logic
+    // =========================
+    function resetEntities(){
+      ball.x = canvasW/2; ball.y = canvasH/2; ball.vx=0; ball.vy=0;
+
+      p1.x = canvasW*0.2; p1.y = canvasH/2 - 20; p1.vx=0; p1.vy=0;
+
+      p2.x = canvasW*0.8; p2.y = canvasH/2 + 20; p2.vx=0; p2.vy=0;
+    }
+
+    function triggerGoalEffect(){
+      const overlay = document.getElementById("goal-overlay");
+      overlay.classList.add("active");
+      triggerShake(20);
+
+      const cx = canvasW/2, cy = canvasH/2;
+      for(let i=0;i<520;i++) particles.push(new Particle(cx, cy, true));
+
+      setTimeout(()=> overlay.classList.remove("active"), 1500);
+    }
+
+    function handleBounds(e){
+      const pad = FIELD_MARGIN;
+      const r = CORNER_RADIUS;
+      const goalH = 180;
+      const goalW = 30;
+      const goalTop = canvasH/2 - goalH/2;
+      const goalBot = canvasH/2 + goalH/2;
+      const isInGoalVertical = e.y > goalTop && e.y < goalBot;
+
+      if(isInGoalVertical){
+        if(e.x < pad){
+          if(e.isBall && e.x < pad - goalW + e.radius){ gState.scoreA++; triggerGoalEffect(); resetEntities(); updateUI(); return; }
+          if(e.x < pad - goalW + e.radius){ e.x = pad - goalW + e.radius; e.vx *= -0.2; }
+        }else if(e.x > canvasW - pad){
+          if(e.isBall && e.x > canvasW - pad + goalW - e.radius){ gState.scoreH++; triggerGoalEffect(); resetEntities(); updateUI(); return; }
+          if(e.x > canvasW - pad + goalW - e.radius){ e.x = canvasW - pad + goalW - e.radius; e.vx *= -0.2; }
+        }
+      }else{
+        let cx=null, cy=null;
+        if(e.x < pad + r && e.y < pad + r){ cx = pad + r; cy = pad + r; }
+        else if(e.x > canvasW - pad - r && e.y < pad + r){ cx = canvasW - pad - r; cy = pad + r; }
+        else if(e.x < pad + r && e.y > canvasH - pad - r){ cx = pad + r; cy = canvasH - pad - r; }
+        else if(e.x > canvasW - pad - r && e.y > canvasH - pad - r){ cx = canvasW - pad - r; cy = canvasH - pad - r; }
+
+        if(cx !== null){
+          const dx = e.x - cx, dy = e.y - cy;
+          const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+          const limit = r - e.radius;
+          if(dist > limit){
+            const nx = dx / dist, ny = dy / dist;
+            e.x = cx + nx*limit; e.y = cy + ny*limit;
+            const dot = e.vx*nx + e.vy*ny;
+            const sp = Math.sqrt(e.vx*e.vx + e.vy*e.vy);
+            if(sp > 5) triggerShake(sp * 0.8);
+            e.vx = (e.vx - 2*dot*nx) * 0.8;
+            e.vy = (e.vy - 2*dot*ny) * 0.8;
+          }
+          return;
+        }
+
+        if(e.x < pad + e.radius){ const s=Math.abs(e.vx); if(s>5) triggerShake(s*0.6); e.x = pad + e.radius; e.vx *= -0.2; }
+        if(e.x > canvasW - pad - e.radius){ const s=Math.abs(e.vx); if(s>5) triggerShake(s*0.6); e.x = canvasW - pad - e.radius; e.vx *= -0.2; }
+      }
+
+      if(e.y < pad + e.radius){ const s=Math.abs(e.vy); if(s>5) triggerShake(s*0.6); e.y = pad + e.radius; e.vy *= -0.2; }
+      if(e.y > canvasH - pad - e.radius){ const s=Math.abs(e.vy); if(s>5) triggerShake(s*0.6); e.y = canvasH - pad - e.radius; e.vy *= -0.2; }
+    }
+
+    function solveCollision(a,b){
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const distSq = dx*dx + dy*dy;
+      const minDist = a.radius + b.radius;
+
+      if(distSq < minDist*minDist){
+        const dist = Math.sqrt(distSq) || 1;
+        const nx = dx/dist, ny = dy/dist;
+        const overlap = (minDist - dist) + 0.2;
+
+        if(a.isBall){
+          a.x -= nx*overlap*0.85; a.y -= ny*overlap*0.85;
+          b.x += nx*overlap*0.15; b.y += ny*overlap*0.15;
+        } else if(b.isBall){
+          b.x += nx*overlap*0.85; b.y += ny*overlap*0.85;
+          a.x -= nx*overlap*0.15; a.y -= ny*overlap*0.15;
+        } else {
+          a.x -= nx*overlap*0.5; a.y -= ny*overlap*0.5;
+          b.x += nx*overlap*0.5; b.y += ny*overlap*0.5;
+        }
+
+        const vRelX = b.vx - a.vx, vRelY = b.vy - a.vy;
+        const vAlong = vRelX*nx + vRelY*ny;
+
+        if(vAlong < 0){
+          const restitution = 1.15;
+          const kickerPower = (a===p1 || b===p1) ? pStats.power : (1.0 + (pStats.ia*0.015));
+          const impulse = -(1 + restitution) * vAlong * (a.isBall || b.isBall ? kickerPower : 1.0);
+
+          const impact = Math.abs(vAlong);
+
+          // SQUASH trigger (sin blink)
+          const impactAngle = Math.atan2(ny, nx);
+          a.triggerImpactFX?.(impact, impactAngle);
+          b.triggerImpactFX?.(impact, impactAngle + Math.PI);
+
+          if(impact > 8){
+            triggerShake(impact*0.7);
+            if(!a.isBall && !b.isBall){
+              for(let i=0;i<7;i++) particles.push(new Particle((a.x+b.x)/2, (a.y+b.y)/2));
+            }
+          }
+
+          if(a.isBall){ a.vx -= nx*impulse; a.vy -= ny*impulse; }
+          else if(b.isBall){ b.vx += nx*impulse; b.vy += ny*impulse; }
+          else {
+            a.vx -= nx*impulse*0.5; a.vy -= ny*impulse*0.5;
+            b.vx += nx*impulse*0.5; b.vy += ny*impulse*0.5;
+          }
+        }
+      }
+    }
+
+    // =========================
+    // DRAW FIELD
+    // =========================
+    function drawField(){
+      const pad = FIELD_MARGIN;
+      const r = CORNER_RADIUS;
+
+      const goalH = 180;
+      const goalTop = canvasH/2 - goalH/2;
+
+      if(imagesReady && images.field){
+        ctx.drawImage(images.field, 0, 0, canvasW, canvasH);
+      }else{
+        ctx.fillStyle = "#0a0a0a";
+        ctx.fillRect(0,0,canvasW,canvasH);
+      }
+		  
+		  // ✅ re-dibujar solo las líneas verticales del borde encima de los PNG (no corta visualmente)
+ctx.save();
+ctx.strokeStyle = "rgba(255,255,255)";
+ctx.lineWidth = 6;
+ctx.lineCap = "round";
+
+// borde izquierdo (x = pad)
+ctx.beginPath();
+ctx.moveTo(pad + camera.x, pad + r + camera.y);
+ctx.lineTo(pad + camera.x, canvasH - pad - r + camera.y);
+ctx.stroke();
+
+// borde derecho (x = canvasW - pad)
+ctx.beginPath();
+ctx.moveTo(canvasW - pad + camera.x, pad + r + camera.y);
+ctx.lineTo(canvasW - pad + camera.x, canvasH - pad - r + camera.y);
+ctx.stroke();
+
+ctx.restore();
+
+      // líneas arriba
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255)";
+      ctx.lineWidth = 6;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+
+      ctx.beginPath();
+      ctx.moveTo(pad + r + camera.x, pad + camera.y);
+      ctx.lineTo(canvasW - pad - r + camera.x, pad + camera.y);
+      ctx.arcTo(canvasW - pad + camera.x, pad + camera.y, canvasW - pad + camera.x, pad + r + camera.y, r);
+
+      ctx.lineTo(canvasW - pad + camera.x, goalTop + camera.y);
+      ctx.moveTo(canvasW - pad + camera.x, goalTop + goalH + camera.y);
+      ctx.lineTo(canvasW - pad + camera.x, canvasH - pad - r + camera.y);
+      ctx.arcTo(canvasW - pad + camera.x, canvasH - pad + camera.y, canvasW - pad - r + camera.x, canvasH - pad + camera.y, r);
+
+      ctx.lineTo(pad + r + camera.x, canvasH - pad + camera.y);
+      ctx.arcTo(pad + camera.x, canvasH - pad + camera.y, pad + camera.x, canvasH - pad - r + camera.y, r);
+
+      ctx.lineTo(pad + camera.x, goalTop + goalH + camera.y);
+      ctx.moveTo(pad + camera.x, goalTop + camera.y);
+      ctx.lineTo(pad + camera.x, pad + r + camera.y);
+      ctx.arcTo(pad + camera.x, pad + camera.y, pad + r + camera.x, pad + camera.y, r);
+      ctx.stroke();
+      ctx.restore();
+
+      // medio + círculo
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255)";
+      ctx.lineWidth = 6;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(canvasW/2 + camera.x, pad + camera.y);
+      ctx.lineTo(canvasW/2 + camera.x, canvasH - pad + camera.y);
+		  
+		  
+		  
+		  
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(canvasW/2 + camera.x, canvasH/2 + camera.y, 70, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+
+      // arcos png arriba
+      const drawGoalW = 90;
+      const drawGoalH = goalH;
+      const gy = goalTop + camera.y;
+
+      if(imagesReady && images.goalL){
+        ctx.drawImage(images.goalL, pad - drawGoalW + camera.x, gy, drawGoalW, drawGoalH);
+      }
+      if(imagesReady && images.goalR){
+        ctx.drawImage(images.goalR, canvasW - pad + camera.x, gy, drawGoalW, drawGoalH);
+      }
+    }
+
+    function draw(){
+      drawField();
+      p1.draw();
+      p2.draw();
+      ball.draw();
+      particles.forEach(p=>p.draw());
+    }
+
+    // =========================
+    // Shop + UI
+    // =========================
+    function openShop(){
+      const shop = document.getElementById("shop-container");
+      shop.innerHTML = "";
+      document.getElementById("shop-total-credits").innerText = Math.floor(pStats.credits);
+
+		  
+		      
+  const ups = [
+        { id:"s", n:"Velocidad +", k:"speed",  a:0.04, c:40 },
+        { id:"p", n:"Potencia +",  k:"power",  a:0.12, c:40 },
+        { id:"r", n:"Físico +",    k:"radius", a:2.5,  c:40 },
+      ];
+
+      ups.forEach(u=>{
+        const btn = document.createElement("div");
+        const used = purchasedThisTurn[u.id];
+        const can = pStats.credits >= u.c;
+
+        btn.className = `upgrade-card ${used || !can ? "disabled":""}`;
+        btn.innerHTML = `<span>${u.n}</span><span class="text-yellow-500 font-bold">${used ? "COMPRADO" : "$"+u.c}</span>`;
+
+        if(!used && can){
+          btn.onclick = ()=>{
+            pStats.credits -= u.c;
+            pStats[u.k] += u.a;
+            if(u.k==="radius") p1.radius = pStats.radius;
+            purchasedThisTurn[u.id] = true;
+            updateUI();
+            openShop();
+          };
+        }
+        shop.appendChild(btn);
+      });
+    }
+
+    function nextMatch(){
+      pStats.streak++;
+      pStats.ia++;
+      purchasedThisTurn = {};
+      gState.time = MATCH_DURATION;
+      gState.scoreH = 0;
+      gState.scoreA = 0;
+      gState.paused = false;
+      lastTime = performance.now();
+      document.getElementById("upgrade-menu").style.display = "none";
+      resetEntities();
+      updateUI();
+    }
+
+    function updateUI(){
+      document.getElementById("ui-streak").innerText = pStats.streak;
+      document.getElementById("ui-credits").innerText = Math.floor(pStats.credits);
+      document.getElementById("ui-ia-lvl").innerText = pStats.ia;
+      document.getElementById("score-home").innerText = gState.scoreH;
+      document.getElementById("score-away").innerText = gState.scoreA;
+    }
+
+    // =========================
+    // Main update (step-based)
+    // =========================
+    function update(t){
+      let dt = (t - lastTime) / 1000;
+      lastTime = t;
+
+      dt = Math.min(Math.max(dt, 0), 0.05);
+      const step = dt * 60;
+
+      if(camera.shakeIntensity > 0.1){
+        camera.x = (Math.random() - 0.5) * camera.shakeIntensity;
+        camera.y = (Math.random() - 0.5) * camera.shakeIntensity;
+        camera.shakeIntensity *= Math.pow(0.85, step);
+      }else{
+        camera.x = 0; camera.y = 0; camera.shakeIntensity = 0;
+      }
+
+      particles = particles.filter(p=>p.life > 0);
+      particles.forEach(p=>p.update(step));
+
+      if(gState.paused) return;
+
+      gState.time -= dt;
+
+      if(gState.time <= 0){
+        gState.paused = true;
+
+        if(gState.scoreH > gState.scoreA){
+          const goalBonus = gState.scoreH * 15;
+          const totalGained = 30 + goalBonus;
+          pStats.credits += totalGained;
+
+          document.getElementById("win-goals-count").innerText = gState.scoreH;
+          document.getElementById("win-goals-bonus").innerText = `+${goalBonus}`;
+          document.getElementById("shop-total-credits").innerText = Math.floor(pStats.credits);
+
+          document.getElementById("upgrade-menu").style.display = "flex";
+          openShop();
+        }else{
+          document.getElementById("final-streak").innerText = pStats.streak;
+          document.getElementById("game-over-screen").style.display = "flex";
+        }
+      }
+
+      // INPUT
+      let ax = 0, ay = 0;
+      const ACCEL = 0.40;
+
+      if(inputKeys["w"] || inputKeys["arrowup"])    ay -= pStats.speed * ACCEL;
+      if(inputKeys["s"] || inputKeys["arrowdown"])  ay += pStats.speed * ACCEL;
+      if(inputKeys["a"] || inputKeys["arrowleft"])  ax -= pStats.speed * ACCEL;
+      if(inputKeys["d"] || inputKeys["arrowright"]) ax += pStats.speed * ACCEL;
+
+      p1.vx += ax * step;
+      p1.vy += ay * step;
+
+      // IA
+      const iaS = 0.15 + (pStats.ia * 0.012);
+      let targetX = ball.x, targetY = ball.y;
+
+      if(ball.x > p2.x){
+        targetX = ball.x + 50;
+        targetY = ball.y > canvasH/2 ? ball.y - 40 : ball.y + 40;
+      }else{
+        targetX = ball.x + 10;
+        const dyToGoal = (canvasH/2) - ball.y;
+        targetY = ball.y - (dyToGoal * 0.05);
+      }
+
+      const adx = targetX - p2.x, ady = targetY - p2.y;
+      const dist = Math.sqrt(adx*adx + ady*ady) || 1;
+
+      if(dist > 8){
+        const rs = iaS * (dist < 50 ? 0.7 : 1);
+        p2.vx += (adx/dist) * rs * step;
+        p2.vy += (ady/dist) * rs * step;
+      }
+
+      p1.move(0.97, step);
+      p2.move(0.95, step);
+      ball.move(0.98, step);
+
+      solveCollision(p1, ball);
+      solveCollision(p2, ball);
+      solveCollision(p1, p2);
+
+      [p1, p2, ball].forEach(e=>handleBounds(e));
+
+      document.getElementById("timer-display").innerText =
+        `00:${Math.max(0, Math.ceil(gState.time)).toString().padStart(2,"0")}`;
+    }
+
+    function loop(t){
+      update(t);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // =========================
+    // Events + boot
+    // =========================
+    window.addEventListener("keydown", e => inputKeys[e.key.toLowerCase()] = true);
+    window.addEventListener("keyup",   e => inputKeys[e.key.toLowerCase()] = false);
+
+    window.addEventListener("resize", () => {
+      canvasW = canvas.width  = window.innerWidth;
+      canvasH = canvas.height = window.innerHeight;
+    });
+    window.dispatchEvent(new Event("resize"));
+
+    (async ()=>{
+      await preloadSprites();
+      updateHeroView();
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
