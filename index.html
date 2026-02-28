@@ -948,16 +948,22 @@ ctx.restore();
       }
 
       // INPUT
-      let ax = 0, ay = 0;
-      const ACCEL = 0.40;
+let ax = 0, ay = 0;
 
-      if(inputKeys["w"] || inputKeys["arrowup"])    ay -= pStats.speed * ACCEL;
-      if(inputKeys["s"] || inputKeys["arrowdown"])  ay += pStats.speed * ACCEL;
-      if(inputKeys["a"] || inputKeys["arrowleft"])  ax -= pStats.speed * ACCEL;
-      if(inputKeys["d"] || inputKeys["arrowright"]) ax += pStats.speed * ACCEL;
+if(inputKeys["w"] || inputKeys["arrowup"])    ay -= 1;
+if(inputKeys["s"] || inputKeys["arrowdown"])  ay += 1;
+if(inputKeys["a"] || inputKeys["arrowleft"])  ax -= 1;
+if(inputKeys["d"] || inputKeys["arrowright"]) ax += 1;
 
-      p1.vx += ax * step;
-      p1.vy += ay * step;
+// NORMALIZAR
+const len = Math.hypot(ax, ay);
+if(len > 0){
+  ax /= len;
+  ay /= len;
+}
+
+p1.vx += ax * pStats.speed * ACCEL * step;
+p1.vy += ay * pStats.speed * ACCEL * step;
 
       // IA
       const iaS = 0.15 + (pStats.ia * 0.012);
